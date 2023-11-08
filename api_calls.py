@@ -43,6 +43,18 @@ def get_changes_single_commit(owner, repo, commit_sha):
     return (commit_message, patches, pull_requests)
 
 
+def gh_get_commit_list(owner, repo, start_date, end_date):
+    gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    headers = {"Authorization": f"token {GITHUB_API_KEY}"}
+    params = {"since": start_date, "until": end_date}
+    r = requests.get(gh_commit_list_url, headers=headers, params=params)
+
+    if r.status_code != 200:
+        raise RuntimeError(f"Error getting commit list, status_code={r.status_code}")
+
+    return [commit["sha"] for commit in r.json()]
+
+
 def call_openai(content):
     openai_url = "https://api.openai.com/v1/chat/completions"
     headers = {
@@ -65,6 +77,22 @@ def ai_summarize_commit(commit_message, patches, pull_requests):
     prompt = SUMMARY_PROMPT_INTRO + f"""
 
     Pull request text: {pull_requests}
+
+    Commit message: {commit_message}
+
+    Code patches: {patches}
+    """
+
+    return call_openai(content=prompt)
+
+
+def ai_criticize_commit(commit_message, patches):
+    prompt = f"""
+    You are a sceptical software engineer doing a code review.
+
+    Does the commit message contradict the code diff to the point where the commit message is not accurately telling the truth about the code patch?
+
+    If so explain, if not say so.
 
     Commit message: {commit_message}
 
