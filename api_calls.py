@@ -21,40 +21,55 @@ Do not focus on the the names of the files, do not focus on the number of lines 
 """
 
 
-def get_changes_single_commit(owner, repo, commit_sha):
-    gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
-    headers = {"Authorization": f"token {GITHUB_API_KEY}"}
-    commit_data = requests.get(gh_commit_url, headers=headers).json()
+def call_github(url, params):
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"token {GITHUB_API_KEY}",
+    }
+    r = requests.get(url, headers=headers, params=params)
 
-    commit_message = commit_data["commit"]["message"]
+    if r.status_code != 200:
+        raise RuntimeError(f"Error calling github api, status_code={r.status_code}")
+
+    return r.json()
+
+
+def get_commit_details(owner, repo, commit_sha):
+    gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
+
+    resp_json = call_github(gh_commit_url, params={})
+
+    commit_message = resp_json["commit"]["message"]
 
     FILE_KEYS = ["filename", "patch", "status", "changes"]
     patches = []
-    for file in commit_data["files"]:
+    for file in resp_json["files"]:
         d = {k: v for k, v in file.items() if k in FILE_KEYS}
         patches.append(d)
 
-    pulls_url = gh_commit_url + "/pulls"
-    pull_data = requests.get(pulls_url, headers=headers).json()
+    return (commit_message, patches)
+
+
+def get_commit_list(owner, repo, start_date, end_date):
+    gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    params = {"since": start_date, "until": end_date}
+
+    resp_json = call_github(gh_commit_list_url, params)
+    return [commit["sha"] for commit in resp_json]
+
+
+def get_pull_requests(owner, repo, commit_sha):
+    pulls_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/pulls"
+
+    resp_json = call_github(pulls_url, params={})
+
     PULL_REQUEST_KEYS = ["title", "body"]
     pull_requests = []
-    for pull in pull_data:
+    for pull in resp_json:
         d = {k: v for k, v in pull.items() if k in PULL_REQUEST_KEYS}
         pull_requests.append(d)
 
-    return (commit_message, patches, pull_requests)
-
-
-def gh_get_commit_list(owner, repo, start_date, end_date):
-    gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-    headers = {"Authorization": f"token {GITHUB_API_KEY}"}
-    params = {"since": start_date, "until": end_date}
-    r = requests.get(gh_commit_list_url, headers=headers, params=params)
-
-    if r.status_code != 200:
-        raise RuntimeError(f"Error getting commit list, status_code={r.status_code}")
-
-    return [commit["sha"] for commit in r.json()]
+    return pull_requests
 
 
 def call_openai(content):
@@ -117,10 +132,10 @@ def ai_summarize_single_data_type(data_type, changes):
     """
     )
 
-    code_changes_str = ""
+    str_code_changes = ""
     for i, d in enumerate(changes):
-        code_changes_str += d + "\n\n\n"
+        str_code_changes += str(d) + "\n\n\n"
 
-    prompt = PROMPT_TEMPLATE.format(data_type=data_type, list_of_code_changes=code_changes_str)
+    prompt = PROMPT_TEMPLATE.format(data_type=data_type, list_of_code_changes=str_code_changes)
 
     return call_openai(content=prompt)

@@ -3,7 +3,8 @@ from pprint import pprint
 
 from api_calls import (ai_criticize_commit, ai_summarize_commit,
                        ai_summarize_single_data_type,
-                       get_changes_single_commit, gh_get_commit_list)
+                       get_commit_list,
+                       get_commit_details, get_pull_requests)
 
 
 class CodeChangeType(enum.Enum):
@@ -36,14 +37,13 @@ list_of_commits = [
 def get_changes_multiple_commits(owner, repo, list_of_commits):
     code_changes = []
     for commit_sha in list_of_commits:
-        code_change = get_changes_single_commit(owner, repo, commit_sha)
+        code_change = get_commit_details(owner, repo, commit_sha)
         code_changes.append(code_change)
     return code_changes
 
 
 code_changes = get_changes_multiple_commits(owner, repo, list_of_commits)
 all_commit_messages = [c[0] for c in code_changes]
-all_pull_requests = [c[2] for c in code_changes]
 all_patches = [c[1] for c in code_changes]
 
 commit_titles = [m.split("\n")[0] for m in all_commit_messages]
@@ -51,10 +51,6 @@ pprint(f"========= Summarizing the following commits =========\n{commit_titles}"
 
 resp = ai_summarize_single_data_type(CodeChangeType.COMMIT_MESSAGE, changes=all_commit_messages)
 pprint("========= Summary of git commit message text =========")
-pprint(resp)
-
-resp = ai_summarize_single_data_type(CodeChangeType.PULL_REQUEST, changes=all_pull_requests)
-pprint("========= Summary of pull request text =========")
 pprint(resp)
 
 resp = ai_summarize_single_data_type(CodeChangeType.CODE_PATCH, changes=all_patches)
