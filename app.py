@@ -1,11 +1,14 @@
 import enum
 from pprint import pprint
 
-from api_calls import ai_summarize_commit, ai_summarize_single_data_type, get_changes_single_commit
+from api_calls import (ai_criticize_commit, ai_summarize_commit,
+                       ai_summarize_single_data_type,
+                       get_changes_single_commit, gh_get_commit_list)
 
 
 class CodeChangeType(enum.Enum):
     """Descriptions of change type for use in prompts."""
+
     COMMIT_MESSAGE = "git commit message text"
     PULL_REQUEST = "pull request text"
     CODE_PATCH = "code edits in the form of a code diff patch"
@@ -36,6 +39,7 @@ def get_changes_multiple_commits(owner, repo, list_of_commits):
         code_change = get_changes_single_commit(owner, repo, commit_sha)
         code_changes.append(code_change)
     return code_changes
+
 
 code_changes = get_changes_multiple_commits(owner, repo, list_of_commits)
 all_commit_messages = [c[0] for c in code_changes]

@@ -1,7 +1,8 @@
-from dotenv import load_dotenv
 import json
-import requests
 import os
+
+import requests
+from dotenv import load_dotenv
 
 load_dotenv()
 GITHUB_API_KEY = os.environ.get("GITHUB_API_KEY")
@@ -18,6 +19,7 @@ Respond with a maximum total of 4 sentences.
 Please focus on the types of changes.
 Do not focus on the the names of the files, do not focus on the number of lines edited.
 """
+
 
 def get_changes_single_commit(owner, repo, commit_sha):
     gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
@@ -39,7 +41,7 @@ def get_changes_single_commit(owner, repo, commit_sha):
     for pull in pull_data:
         d = {k: v for k, v in pull.items() if k in PULL_REQUEST_KEYS}
         pull_requests.append(d)
-    
+
     return (commit_message, patches, pull_requests)
 
 
@@ -66,15 +68,19 @@ def call_openai(content):
 
     token_estimate = int(len(content) / 4)
     if token_estimate > 4097:
-        raise RuntimeError(f"Token estimate {token_estimate} exceeds maximum 4097 tokens for OpenAI API")
+        raise RuntimeError(
+            f"Token estimate {token_estimate} exceeds maximum 4097 tokens for OpenAI API"
+        )
 
     r = requests.post(openai_url, headers=headers, data=data)
-    ai_reply = r.json()['choices'][0]['message']['content']
+    ai_reply = r.json()["choices"][0]["message"]["content"]
     return ai_reply
 
 
 def ai_summarize_commit(commit_message, patches, pull_requests):
-    prompt = SUMMARY_PROMPT_INTRO + f"""
+    prompt = (
+        SUMMARY_PROMPT_INTRO
+        + f"""
 
     Pull request text: {pull_requests}
 
@@ -82,6 +88,7 @@ def ai_summarize_commit(commit_message, patches, pull_requests):
 
     Code patches: {patches}
     """
+    )
 
     return call_openai(content=prompt)
 
@@ -103,9 +110,12 @@ def ai_criticize_commit(commit_message, patches):
 
 
 def ai_summarize_single_data_type(data_type, changes):
-    PROMPT_TEMPLATE = SUMMARY_PROMPT_INTRO + """
+    PROMPT_TEMPLATE = (
+        SUMMARY_PROMPT_INTRO
+        + """
     Here are the {data_type} items I want you to summarize: {list_of_code_changes}
     """
+    )
 
     code_changes_str = ""
     for i, d in enumerate(changes):

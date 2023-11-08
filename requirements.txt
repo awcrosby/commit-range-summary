@@ -1,2 +1,6 @@
 python-dotenv
 requests
+
+# Development
+black
+isort
