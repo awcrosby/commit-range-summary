@@ -1,10 +1,15 @@
 import enum
 from pprint import pprint
 
-from api_calls import (ai_criticize_commit, ai_summarize_commit,
-                       ai_summarize_single_data_type,
-                       get_commit_list,
-                       get_commit_details, get_pull_requests)
+from api_calls import (
+    ai_criticize_commit,
+    ai_summarize_commit,
+    ai_summarize_single_data_type,
+    call_openai,
+    get_commit_details,
+    get_commit_list,
+    get_pull_requests,
+)
 
 
 class CodeChangeType(enum.Enum):
@@ -32,6 +37,20 @@ list_of_commits = [
     "05712d1d76e934f5b5952bf8cf2ac29aa310a0e8",
     "573a5994fcf534fafe27372a6fe098fb7bb14c62",
 ]
+
+
+def sum_commit_messages(owner, repo, start_date, end_date):
+    prompt = """
+    Please write a short paragraph for a resume.
+
+    Your input will be git commit messages.
+    Do not simply list the commit messages, infer experience based on the text.
+
+    Here is a list of the commit messages:\n{commit_messages}
+    """
+    commit_list = get_commit_list(owner, repo, start_date, end_date)
+    commit_messages = [get_commit_details(owner, repo, sha)[0] for sha in commit_list]
+    return call_openai(prompt.format(commit_messages=commit_messages))
 
 
 def get_changes_multiple_commits(owner, repo, list_of_commits):
