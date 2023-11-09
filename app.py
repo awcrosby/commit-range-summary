@@ -1,15 +1,23 @@
 import enum
+import os
 from pprint import pprint
 
-from api_calls import (
-    ai_criticize_commit,
-    ai_summarize_commit,
-    ai_summarize_single_data_type,
-    call_openai,
-    get_commit_details,
-    get_commit_list,
-    get_pull_requests,
+from dotenv import load_dotenv
+
+from api_calls import get_commit_details
+from prompts import (
+    criticize_commit,
+    sum_commit_messages,
+    sum_commit_patches,
+    sum_single_commit,
 )
+
+load_dotenv()
+OWNER = os.environ.get("OWNER")
+REPO = os.environ.get("REPO")
+START_DATE = os.environ.get("START_DATE")
+END_DATE = os.environ.get("END_DATE")
+COMMIT_SHA = os.environ.get("COMMIT_SHA")
 
 
 class CodeChangeType(enum.Enum):
@@ -20,58 +28,20 @@ class CodeChangeType(enum.Enum):
     CODE_PATCH = "code edits in the form of a code diff patch"
 
 
-### Github info input
-owner = "awcrosby"
-repo = "galaxy-importer"
-commit_sha = "573a5994fcf534fafe27372a6fe098fb7bb14c62"
+# Summarize single commit based on commit message and code patches
+commit_message, patches = get_commit_details(OWNER, REPO, COMMIT_SHA)
+ai_reply = sum_single_commit(commit_message, patches)
+print(ai_reply)
 
-# commit_message, patches, pull_requests = get_changes_single_commit(owner, repo, commit_sha)
-# single_commit_summary = ai_summarize_commit(commit_message, patches, pull_requests)
-# pprint(single_commit_summary)
+# Summarize range of commits based on commit messages
+ai_reply = sum_commit_messages(OWNER, REPO, START_DATE, END_DATE)
+print(ai_reply)
 
-list_of_commits = [
-    "eb5ead417c703363beb04d082eb3b2a0767af6fb",
-    "16c76a32839c08e1faaaa18383a4ca2328282b34",
-    "475c6a00d5788b6a2e3486f10627f5967dc2f826",
-    "968e0db27be862b5fac9a3e49b0f5ecf62213164",
-    "05712d1d76e934f5b5952bf8cf2ac29aa310a0e8",
-    "573a5994fcf534fafe27372a6fe098fb7bb14c62",
-]
+# Summarize range of commits based on commit code patches
+ai_reply = sum_commit_patches(OWNER, REPO, START_DATE, END_DATE)
+print(ai_reply)
 
-
-def sum_commit_messages(owner, repo, start_date, end_date):
-    prompt = """
-    Please write a short paragraph for a resume.
-
-    Your input will be git commit messages.
-    Do not simply list the commit messages, infer experience based on the text.
-
-    Here is a list of the commit messages:\n{commit_messages}
-    """
-    commit_list = get_commit_list(owner, repo, start_date, end_date)
-    commit_messages = [get_commit_details(owner, repo, sha)[0] for sha in commit_list]
-    return call_openai(prompt.format(commit_messages=commit_messages))
-
-
-def get_changes_multiple_commits(owner, repo, list_of_commits):
-    code_changes = []
-    for commit_sha in list_of_commits:
-        code_change = get_commit_details(owner, repo, commit_sha)
-        code_changes.append(code_change)
-    return code_changes
-
-
-code_changes = get_changes_multiple_commits(owner, repo, list_of_commits)
-all_commit_messages = [c[0] for c in code_changes]
-all_patches = [c[1] for c in code_changes]
-
-commit_titles = [m.split("\n")[0] for m in all_commit_messages]
-pprint(f"========= Summarizing the following commits =========\n{commit_titles}")
-
-resp = ai_summarize_single_data_type(CodeChangeType.COMMIT_MESSAGE, changes=all_commit_messages)
-pprint("========= Summary of git commit message text =========")
-pprint(resp)
-
-resp = ai_summarize_single_data_type(CodeChangeType.CODE_PATCH, changes=all_patches)
-pprint("========= Summary of code code diff patches =========")
-pprint(resp)
+# Critical review of single commit if message and code patches don't align 
+commit_message, patches = get_commit_details(OWNER, REPO, COMMIT_SHA)
+ai_reply = criticize_commit(commit_message, patches)
+print(ai_reply)
