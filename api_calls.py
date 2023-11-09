@@ -29,7 +29,9 @@ def call_github(url, params):
     r = requests.get(url, headers=headers, params=params)
 
     if r.status_code != 200:
-        raise RuntimeError(f"Error calling github api, status_code={r.status_code}")
+        raise RuntimeError(
+            f"Error calling github api, {r.status_code} {r.reason}: {r.json()['error']['message']}"
+        )
 
     return r.json()
 
@@ -78,16 +80,33 @@ def call_openai(content):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {OPENAI_API_KEY}",
     }
-    payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": content}]}
+
+    # MODEL = "gpt-4-1106-preview"
+    # MODEL_INPUT_CONTEXT_WINDOW_TOKENS = 128000
+    # MODEL_TPM_LIMIT = 10000
+
+    MODEL = "gpt-3.5-turbo-1106"
+    MODEL_INPUT_CONTEXT_WINDOW_TOKENS = 16385
+    MODEL_TPM_LIMIT = 90000
+
+    payload = {"model": MODEL, "messages": [{"role": "user", "content": content}]}
     data = json.dumps(payload)
 
-    token_estimate = int(len(content) / 4)
-    if token_estimate > 4097:
+    CHAR_PER_TOKEN = 3.7  # usually 4, can reduce to allow room for prompt introduction
+    token_limit = min(MODEL_TPM_LIMIT, MODEL_INPUT_CONTEXT_WINDOW_TOKENS)
+    token_estimate = int(len(content) / CHAR_PER_TOKEN)
+    if token_estimate > token_limit:
         raise RuntimeError(
-            f"Token estimate {token_estimate} exceeds maximum 4097 tokens for OpenAI API"
+            f"Token estimate {token_estimate} exceeds maximum {token_limit} tokens for OpenAI API"
         )
 
     r = requests.post(openai_url, headers=headers, data=data)
+
+    if r.status_code != 200:
+        raise RuntimeError(
+            f"Error calling openai api, {r.status_code} {r.reason}: {r.json()['error']['message']}"
+        )
+
     ai_reply = r.json()["choices"][0]["message"]["content"]
     return ai_reply
 
