@@ -3,6 +3,7 @@ from api_calls import call_openai, get_commit_details, get_commit_list
 
 def sum_commit_messages(owner: str, repo: str, start_date: str, end_date: str):
     print("===Summary of commit range based on commit messages===")
+    print(f"owner: {owner}\nrepo: {repo}\nstart_date: {start_date}\nend_date: {end_date}")
     prompt = """
     Please write a single short paragraph for a resume.
 
@@ -20,6 +21,7 @@ def sum_commit_messages(owner: str, repo: str, start_date: str, end_date: str):
 
 def sum_commit_patches(owner: str, repo: str, start_date: str, end_date: str):
     print("===Summary of commit range based on commit code patches===")
+    print(f"owner: {owner}\nrepo: {repo}\nstart_date: {start_date}\nend_date: {end_date}")
     prompt = """
     Please write a single short paragraph for a resume.
 

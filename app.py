@@ -41,7 +41,7 @@ print(ai_reply)
 ai_reply = sum_commit_patches(OWNER, REPO, START_DATE, END_DATE)
 print(ai_reply)
 
-# Critical review of single commit if message and code patches don't align 
+# Critical review of single commit if message and code patches don't align
 commit_message, patches = get_commit_details(OWNER, REPO, COMMIT_SHA)
 ai_reply = criticize_commit(commit_message, patches)
 print(ai_reply)

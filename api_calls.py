@@ -29,9 +29,8 @@ def call_github(url, params):
     r = requests.get(url, headers=headers, params=params)
 
     if r.status_code != 200:
-        raise RuntimeError(
-            f"Error calling github api, {r.status_code} {r.reason}: {r.json()['error']['message']}"
-        )
+        message = r.json().get("message", "")
+        raise RuntimeError(f"Error calling github api, {r.status_code} {r.reason}: {message}")
 
     return r.json()
 
