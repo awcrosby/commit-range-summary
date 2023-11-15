@@ -1,20 +1,26 @@
+from typing import Optional
+
 from api_calls import call_openai, get_commit_details, get_commit_list
 
 
-def sum_commit_messages(owner: str, repo: str, start_date: str, end_date: str):
+def sum_commit_messages(
+    owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
+):
     print("===Summary of commit range based on commit messages===")
-    print(f"owner: {owner}\nrepo: {repo}\nstart_date: {start_date}\nend_date: {end_date}")
+    print(
+        f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nstart_date: {start_date}\nend_date: {end_date}"
+    )
     prompt = """
-    Please write a single short paragraph for a resume.
+    Write a single short paragraph for a resume.
 
     Your input will be git commit messages.
     Do not simply list the commit messages.
-    Infer experience based on the text.
-    Please be a little humble and do not use many superlatives.
+    Make it devoid of any business bullshit speak and sales / leadership / marketing / social media influencer jargon
 
     Here is a list of the commit messages:\n{commit_messages}
     """
-    commit_list = get_commit_list(owner, repo, start_date, end_date)
+    commit_list = get_commit_list(owner, repo, start_date, end_date, author)
+    print(f"number of commits: {len(commit_list)}")
     commit_messages = [get_commit_details(owner, repo, sha)[0] for sha in commit_list]
     return call_openai(prompt.format(commit_messages=commit_messages))
 

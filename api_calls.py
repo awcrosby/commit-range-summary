@@ -51,9 +51,11 @@ def get_commit_details(owner, repo, commit_sha):
     return (commit_message, patches)
 
 
-def get_commit_list(owner, repo, start_date, end_date):
+def get_commit_list(owner, repo, start_date, end_date, author=None):
     gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
     params = {"since": start_date, "until": end_date}
+    if author:
+        params["author"] = author
 
     resp_json = call_github(gh_commit_list_url, params)
     return [commit["sha"] for commit in resp_json]

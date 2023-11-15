@@ -15,6 +15,7 @@ from prompts import (
 load_dotenv()
 OWNER = os.environ.get("OWNER")
 REPO = os.environ.get("REPO")
+AUTHOR = os.environ.get("AUTHOR")
 START_DATE = os.environ.get("START_DATE")
 END_DATE = os.environ.get("END_DATE")
 COMMIT_SHA = os.environ.get("COMMIT_SHA")
@@ -34,7 +35,7 @@ ai_reply = sum_single_commit(commit_message, patches)
 print(ai_reply)
 
 # Summarize range of commits based on commit messages
-ai_reply = sum_commit_messages(OWNER, REPO, START_DATE, END_DATE)
+ai_reply = sum_commit_messages(OWNER, REPO, START_DATE, END_DATE, AUTHOR)
 print(ai_reply)
 
 # Summarize range of commits based on commit code patches
