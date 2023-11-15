@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -21,7 +22,7 @@ Do not focus on the the names of the files, do not focus on the number of lines 
 """
 
 
-def call_github(url, params):
+def call_github(url: str, params: dict[str, str]) -> requests.models.Response:
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"token {GITHUB_API_KEY}",
@@ -32,13 +33,13 @@ def call_github(url, params):
         message = r.json().get("message", "")
         raise RuntimeError(f"Error calling github api, {r.status_code} {r.reason}: {message}")
 
-    return r.json()
+    return r
 
 
 def get_commit_details(owner, repo, commit_sha):
     gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
 
-    resp_json = call_github(gh_commit_url, params={})
+    resp_json = call_github(gh_commit_url, params={}).json()
 
     commit_message = resp_json["commit"]["message"]
 
@@ -51,20 +52,28 @@ def get_commit_details(owner, repo, commit_sha):
     return (commit_message, patches)
 
 
-def get_commit_list(owner, repo, start_date, end_date, author=None):
+def get_commit_list(owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None) -> list[str]:
     gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
     params = {"since": start_date, "until": end_date}
     if author:
         params["author"] = author
 
-    resp_json = call_github(gh_commit_list_url, params)
-    return [commit["sha"] for commit in resp_json]
+    resp = call_github(gh_commit_list_url, params)
 
+    commits = resp.json()
+    while "next" in resp.links:
+        resp = call_github(
+            resp.links["next"]["url"],
+            params,
+        )
+        commits.extend(resp.json())
+
+    return [commit["sha"] for commit in commits]
 
 def get_pull_requests(owner, repo, commit_sha):
     pulls_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/pulls"
 
-    resp_json = call_github(pulls_url, params={})
+    resp_json = call_github(pulls_url, params={}).json()
 
     PULL_REQUEST_KEYS = ["title", "body"]
     pull_requests = []
