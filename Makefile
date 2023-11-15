@@ -1,7 +1,15 @@
-lint:
-	@black --diff -l 99 --check *.py
-	isort --diff --multi-line 3 --trailing-comma .
+lint:  # Display short output only if fails linter
+	-@isort --multi-line 3 --trailing-comma . --check --quiet
+	-@ruff check .
+	-@ruff format . --line-length 99 --check --quiet
+	-@mypy . --no-error-summary
 
-fmt:
-	black -l 99 *.py
-	isort --multi-line 3 --trailing-comma .
+format-diff:  # Display changes formatter would make
+	-isort --multi-line 3 --trailing-comma . --diff
+	-ruff check .
+	-ruff format . --line-length 99 --diff
+
+format:  # Format code
+	-isort --multi-line 3 --trailing-comma .
+	-ruff check . --fix
+	-ruff format . --line-length 99

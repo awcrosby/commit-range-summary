@@ -52,7 +52,9 @@ def get_commit_details(owner, repo, commit_sha):
     return (commit_message, patches)
 
 
-def get_commit_list(owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None) -> list[str]:
+def get_commit_list(
+    owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
+) -> list[str]:
     gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
     params = {"since": start_date, "until": end_date}
     if author:
@@ -69,6 +71,7 @@ def get_commit_list(owner: str, repo: str, start_date: str, end_date: str, autho
         commits.extend(resp.json())
 
     return [commit["sha"] for commit in commits]
+
 
 def get_pull_requests(owner, repo, commit_sha):
     pulls_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/pulls"

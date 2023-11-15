@@ -1,6 +1,5 @@
 import enum
 import os
-from pprint import pprint
 
 from dotenv import load_dotenv
 
@@ -13,12 +12,12 @@ from prompts import (
 )
 
 load_dotenv()
-OWNER = os.environ.get("OWNER")
-REPO = os.environ.get("REPO")
-AUTHOR = os.environ.get("AUTHOR")
-START_DATE = os.environ.get("START_DATE")
-END_DATE = os.environ.get("END_DATE")
-COMMIT_SHA = os.environ.get("COMMIT_SHA")
+OWNER = os.environ.get("OWNER", "")
+REPO = os.environ.get("REPO", "")
+AUTHOR = os.environ.get("AUTHOR", "")
+START_DATE = os.environ.get("START_DATE", "")
+END_DATE = os.environ.get("END_DATE", "")
+COMMIT_SHA = os.environ.get("COMMIT_SHA", "")
 
 
 class CodeChangeType(enum.Enum):
