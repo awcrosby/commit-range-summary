@@ -2,6 +2,7 @@ from typing import Optional
 
 from api_calls import (
     call_openai,
+    get_commit_details,
     get_commit_list,
     get_commit_message,
     get_commit_metadata,
@@ -11,7 +12,7 @@ from api_calls import (
 
 def sum_message_range(
     owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
-):
+) -> str:
     print("===Summary of commit range based on commit messages===")
     print(
         f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nstart_date: {start_date}\nend_date: {end_date}"
@@ -33,7 +34,7 @@ def sum_message_range(
 
 def sum_metadata_range(
     owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
-):
+) -> str:
     print("===Summary of commit range based on messages and file metadata===")
     print(
         f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nstart_date: {start_date}\nend_date: {end_date}"
@@ -53,8 +54,8 @@ def sum_metadata_range(
     return call_openai(prompt.format(commit_data=commit_data))
 
 
-def sum_patch_range(owner: str, repo: str, start_date: str, end_date: str):
-    print("===Summary of commit range based on commit code patches===")
+def sum_patch_range(owner: str, repo: str, start_date: str, end_date: str) -> str:
+    print("===Summary of commit range based on messages and commit code patches===")
     print(f"owner: {owner}\nrepo: {repo}\nstart_date: {start_date}\nend_date: {end_date}")
     prompt = """
     Please write a single short paragraph for a resume.
@@ -67,11 +68,11 @@ def sum_patch_range(owner: str, repo: str, start_date: str, end_date: str):
     """
     commit_shas = get_commit_list(owner, repo, start_date, end_date)
     print(f"number of commits: {len(commit_shas)}")
-    commit_patches = [get_commit_patches(owner, repo, sha)[1] for sha in commit_shas]
+    commit_patches = [get_commit_details(owner, repo, sha) for sha in commit_shas]
     return call_openai(prompt.format(commit_patches=commit_patches))
 
 
-def sum_patch(commit_message, patches):
+def sum_patch(owner: str, repo: str, commit_sha: str) -> str:
     print("===Summary of single commit based on commit message and code patches===")
     prompt = """
     I need a summary of code changes made to a git repository.
@@ -88,11 +89,13 @@ def sum_patch(commit_message, patches):
 
     Code patches: {patches}
     """
-
+    commit = get_commit_patches(owner, repo, commit_sha)
+    commit_message = commit["message"]
+    patches = commit["files"]
     return call_openai(prompt.format(commit_message=commit_message, patches=patches))
 
 
-def criticize_patch(commit_message, patches):
+def criticize_patch(owner: str, repo: str, commit_sha: str) -> str:
     print("===Critical review of single commit if message and code patches don't align===")
     prompt = """
     You are a sceptical software engineer doing a code review.
@@ -105,5 +108,7 @@ def criticize_patch(commit_message, patches):
 
     Code patches: {patches}
     """
-
+    commit = get_commit_patches(owner, repo, commit_sha)
+    commit_message = commit["message"]
+    patches = commit["files"]
     return call_openai(prompt.format(commit_message=commit_message, patches=patches))

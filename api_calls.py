@@ -22,6 +22,40 @@ Please focus on the types of changes.
 Do not focus on the the names of the files, do not focus on the number of lines edited.
 """
 
+COMMIT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "message": {"type": "string"},
+        "stats": {
+            "type": "object",
+            "properties": {
+                "additions": {"type": "number"},
+                "deletions": {"type": "number"},
+                "total": {"type": "number"},
+            },
+            "additionalProperties": False,
+        },
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string"},
+                    "status": {"type": "string"},
+                    "changes": {"type": "number"},
+                    "additions": {"type": "number"},
+                    "deletions": {"type": "number"},
+                    "patch": {"type": "string"},
+                },
+                "additionalProperties": False,
+                "required": ["filename"],
+            },
+        },
+    },
+    "additionalProperties": False,
+    "required": ["message", "stats", "files"],
+}
+
 
 def call_github(url: str, params: dict[str, str]) -> requests.models.Response:
     headers = {
@@ -48,64 +82,45 @@ def get_commit_message(owner: str, repo: str, commit_sha: str) -> str:
 
 
 def get_commit_metadata(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
-    schema = {
-        "type": "object",
-        "properties": {
-            "message": {"type": "string"},
-            "stats": {
-                "type": "object",
-                "properties": {
-                    "additions": {"type": "number"},
-                    "deletions": {"type": "number"},
-                    "total": {"type": "number"},
-                },
-            },
-            "files": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "filename": {"type": "string"},
-                        "status": {"type": "string"},
-                        "additions": {"type": "number"},
-                        "deletions": {"type": "number"},
-                        "changes": {"type": "number"},
-                    },
-                },
-            },
-        },
-    }
+    """Remove code patches from commit details"""
+    commit_details = get_commit_details(owner, repo, commit_sha)
+    for file in commit_details["files"]:
+        file.pop("patch", None)
 
+    validate(commit_details, schema=COMMIT_SCHEMA)
+    return commit_details
+
+
+def get_commit_patches(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    """Remove metadata from commit details"""
+    commit_details = get_commit_details(owner, repo, commit_sha)
+    for file in commit_details["files"]:
+        file.pop("additions", None)
+        file.pop("changes", None)
+        file.pop("deletions", None)
+        file.pop("status", None)
+
+    validate(commit_details, schema=COMMIT_SCHEMA)
+    return commit_details
+
+
+def get_commit_details(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
     commit = get_commit(owner, repo, commit_sha)
 
-    FILE_KEYS = ["filename", "status", "additions", "deletions", "changes"]
+    FILE_KEYS = ["patch", "filename", "status", "additions", "deletions", "changes"]
     files = []
     for file in commit["files"]:
         d = {k: v for k, v in file.items() if k in FILE_KEYS}
         files.append(d)
 
-    commit_metadata = {
+    commit_details = {
         "message": commit["commit"]["message"],
         "stats": commit["stats"],
         "files": files,
     }
 
-    validate(commit_metadata, schema=schema)
-    return commit_metadata
-
-
-def get_commit_patches(owner: str, repo: str, commit_sha: str) -> tuple[str, list[dict[str, str]]]:
-    commit = get_commit(owner, repo, commit_sha)
-
-    commit_message = commit["commit"]["message"]
-
-    FILE_KEYS = ["filename", "patch", "status", "changes"]
-    patches = []
-    for file in commit["files"]:
-        d = {k: v for k, v in file.items() if k in FILE_KEYS}
-        patches.append(d)
-
-    return (commit_message, patches)
+    validate(commit_details, schema=COMMIT_SCHEMA)
+    return commit_details
 
 
 def get_commit_list(
@@ -129,7 +144,7 @@ def get_commit_list(
     return [commit["sha"] for commit in commits]
 
 
-def get_pull_requests(owner, repo, commit_sha):
+def get_pull_requests(owner: str, repo: str, commit_sha: str) -> list[Dict]:
     pulls_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/pulls"
 
     resp_json = call_github(pulls_url, params={}).json()
@@ -143,7 +158,7 @@ def get_pull_requests(owner, repo, commit_sha):
     return pull_requests
 
 
-def call_openai(content):
+def call_openai(content: str) -> str:
     openai_url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
