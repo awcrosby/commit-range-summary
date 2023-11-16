@@ -3,12 +3,13 @@ import os
 
 from dotenv import load_dotenv
 
-from api_calls import get_commit_details
+from api_calls import get_commit_patches
 from prompts import (
-    criticize_commit,
-    sum_commit_messages,
-    sum_commit_patches,
-    sum_single_commit,
+    criticize_patch,
+    sum_message_range,
+    sum_metadata_range,
+    sum_patch,
+    sum_patch_range,
 )
 
 load_dotenv()
@@ -28,20 +29,24 @@ class CodeChangeType(enum.Enum):
     CODE_PATCH = "code edits in the form of a code diff patch"
 
 
+# Summarize commit from message and file patch metadata
+ai_reply = sum_metadata_range(OWNER, REPO, START_DATE, END_DATE, AUTHOR)
+print(ai_reply)
+
 # Summarize single commit based on commit message and code patches
-commit_message, patches = get_commit_details(OWNER, REPO, COMMIT_SHA)
-ai_reply = sum_single_commit(commit_message, patches)
+commit_message, patches = get_commit_patches(OWNER, REPO, COMMIT_SHA)
+ai_reply = sum_patch(commit_message, patches)
 print(ai_reply)
 
 # Summarize range of commits based on commit messages
-ai_reply = sum_commit_messages(OWNER, REPO, START_DATE, END_DATE, AUTHOR)
+ai_reply = sum_message_range(OWNER, REPO, START_DATE, END_DATE, AUTHOR)
 print(ai_reply)
 
 # Summarize range of commits based on commit code patches
-ai_reply = sum_commit_patches(OWNER, REPO, START_DATE, END_DATE)
+ai_reply = sum_patch_range(OWNER, REPO, START_DATE, END_DATE)
 print(ai_reply)
 
 # Critical review of single commit if message and code patches don't align
-commit_message, patches = get_commit_details(OWNER, REPO, COMMIT_SHA)
-ai_reply = criticize_commit(commit_message, patches)
+commit_message, patches = get_commit_patches(OWNER, REPO, COMMIT_SHA)
+ai_reply = criticize_patch(commit_message, patches)
 print(ai_reply)

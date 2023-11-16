@@ -1,9 +1,10 @@
 import json
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import requests
 from dotenv import load_dotenv
+from jsonschema import validate
 
 load_dotenv()
 GITHUB_API_KEY = os.environ.get("GITHUB_API_KEY")
@@ -36,16 +37,71 @@ def call_github(url: str, params: dict[str, str]) -> requests.models.Response:
     return r
 
 
-def get_commit_details(owner, repo, commit_sha):
+def get_commit(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
     gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
+    return call_github(gh_commit_url, params={}).json()
 
-    resp_json = call_github(gh_commit_url, params={}).json()
 
-    commit_message = resp_json["commit"]["message"]
+def get_commit_message(owner: str, repo: str, commit_sha: str) -> str:
+    commit = get_commit(owner, repo, commit_sha)
+    return commit["commit"]["message"]
+
+
+def get_commit_metadata(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    schema = {
+        "type": "object",
+        "properties": {
+            "message": {"type": "string"},
+            "stats": {
+                "type": "object",
+                "properties": {
+                    "additions": {"type": "number"},
+                    "deletions": {"type": "number"},
+                    "total": {"type": "number"},
+                },
+            },
+            "files": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string"},
+                        "status": {"type": "string"},
+                        "additions": {"type": "number"},
+                        "deletions": {"type": "number"},
+                        "changes": {"type": "number"},
+                    },
+                },
+            },
+        },
+    }
+
+    commit = get_commit(owner, repo, commit_sha)
+
+    FILE_KEYS = ["filename", "status", "additions", "deletions", "changes"]
+    files = []
+    for file in commit["files"]:
+        d = {k: v for k, v in file.items() if k in FILE_KEYS}
+        files.append(d)
+
+    commit_metadata = {
+        "message": commit["commit"]["message"],
+        "stats": commit["stats"],
+        "files": files,
+    }
+
+    validate(commit_metadata, schema=schema)
+    return commit_metadata
+
+
+def get_commit_patches(owner: str, repo: str, commit_sha: str) -> tuple[str, list[dict[str, str]]]:
+    commit = get_commit(owner, repo, commit_sha)
+
+    commit_message = commit["commit"]["message"]
 
     FILE_KEYS = ["filename", "patch", "status", "changes"]
     patches = []
-    for file in resp_json["files"]:
+    for file in commit["files"]:
         d = {k: v for k, v in file.items() if k in FILE_KEYS}
         patches.append(d)
 
@@ -96,7 +152,7 @@ def call_openai(content):
 
     # MODEL = "gpt-4-1106-preview"
     # MODEL_INPUT_CONTEXT_WINDOW_TOKENS = 128000
-    # MODEL_TPM_LIMIT = 10000
+    # MODEL_TPM_LIMIT = 150000
 
     MODEL = "gpt-3.5-turbo-1106"
     MODEL_INPUT_CONTEXT_WINDOW_TOKENS = 16385

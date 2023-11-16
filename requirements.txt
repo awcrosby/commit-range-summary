@@ -1,3 +1,4 @@
+jsonschema
 python-dotenv
 requests
 
@@ -7,4 +8,5 @@ ruff
 
 # Typing
 mypy
+types-jsonschema
 types-requests
