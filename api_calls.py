@@ -176,13 +176,14 @@ def call_openai(content: str) -> str:
     payload = {"model": MODEL, "messages": [{"role": "user", "content": content}]}
     data = json.dumps(payload)
 
-    CHAR_PER_TOKEN = 3.7  # usually 4, can reduce to allow room for prompt introduction
+    CHAR_PER_TOKEN = 3.9  # usually 4, can reduce to be less likely to hit limit
     token_limit = min(MODEL_TPM_LIMIT, MODEL_INPUT_CONTEXT_WINDOW_TOKENS)
     token_estimate = int(len(content) / CHAR_PER_TOKEN)
     if token_estimate > token_limit:
         raise RuntimeError(
             f"Token estimate {token_estimate} exceeds maximum {token_limit} tokens for OpenAI API"
         )
+    print(f"token_estimate: {token_estimate}")
 
     r = requests.post(openai_url, headers=headers, data=data)
 
