@@ -13,3 +13,6 @@ format:  # Format code
 	-isort --multi-line 3 --trailing-comma .
 	-ruff check . --fix
 	-ruff format . --line-length 99
+
+test:
+	pytest --cov=. --cov-branch test_*.py

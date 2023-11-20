@@ -53,7 +53,7 @@ COMMIT_SCHEMA = {
         },
     },
     "additionalProperties": False,
-    "required": ["message", "stats", "files"],
+    "required": ["message", "files"],
 }
 
 
@@ -72,39 +72,19 @@ def call_github(url: str, params: dict[str, str]) -> requests.models.Response:
 
 
 def get_commit(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    """Get commit json from GitHub as-is."""
     gh_commit_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}"
     return call_github(gh_commit_url, params={}).json()
 
 
 def get_commit_message(owner: str, repo: str, commit_sha: str) -> str:
+    """Get only the commit message from GitHub."""
     commit = get_commit(owner, repo, commit_sha)
     return commit["commit"]["message"]
 
 
-def get_commit_metadata(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
-    """Remove code patches from commit details"""
-    commit_details = get_commit_details(owner, repo, commit_sha)
-    for file in commit_details["files"]:
-        file.pop("patch", None)
-
-    validate(commit_details, schema=COMMIT_SCHEMA)
-    return commit_details
-
-
-def get_commit_patches(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
-    """Remove metadata from commit details"""
-    commit_details = get_commit_details(owner, repo, commit_sha)
-    for file in commit_details["files"]:
-        file.pop("additions", None)
-        file.pop("changes", None)
-        file.pop("deletions", None)
-        file.pop("status", None)
-
-    validate(commit_details, schema=COMMIT_SCHEMA)
-    return commit_details
-
-
 def get_commit_details(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    """Transform commit details to match schema."""
     commit = get_commit(owner, repo, commit_sha)
 
     FILE_KEYS = ["patch", "filename", "status", "additions", "deletions", "changes"]
@@ -118,6 +98,29 @@ def get_commit_details(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]
         "stats": commit["stats"],
         "files": files,
     }
+
+    validate(commit_details, schema=COMMIT_SCHEMA)
+    return commit_details
+
+
+def get_commit_metadata(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    """Remove code patches from commit details, continue to match schema"""
+    commit_details = get_commit_details(owner, repo, commit_sha)
+    for file in commit_details["files"]:
+        file.pop("patch", None)
+
+    validate(commit_details, schema=COMMIT_SCHEMA)
+    return commit_details
+
+
+def get_commit_patches(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]:
+    """Remove metadata from commit details, continue to match schema"""
+    commit_details = get_commit_details(owner, repo, commit_sha)
+    for file in commit_details["files"]:
+        file.pop("additions", None)
+        file.pop("changes", None)
+        file.pop("deletions", None)
+        file.pop("status", None)
 
     validate(commit_details, schema=COMMIT_SCHEMA)
     return commit_details
@@ -142,20 +145,6 @@ def get_commit_list(
         commits.extend(resp.json())
 
     return [commit["sha"] for commit in commits]
-
-
-def get_pull_requests(owner: str, repo: str, commit_sha: str) -> list[Dict]:
-    pulls_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/pulls"
-
-    resp_json = call_github(pulls_url, params={}).json()
-
-    PULL_REQUEST_KEYS = ["title", "body"]
-    pull_requests = []
-    for pull in resp_json:
-        d = {k: v for k, v in pull.items() if k in PULL_REQUEST_KEYS}
-        pull_requests.append(d)
-
-    return pull_requests
 
 
 def call_openai(content: str) -> str:

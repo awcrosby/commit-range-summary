@@ -4,6 +4,8 @@ requests
 
 # Development
 isort
+pytest
+pytest-cov
 ruff
 
 # Typing
