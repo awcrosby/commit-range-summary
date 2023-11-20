@@ -16,3 +16,9 @@ format:  # Format code
 
 test:
 	pytest --cov=. --cov-branch test_*.py
+
+test/annotate:
+	pytest --cov=. --cov-branch test_*.py --cov-report annotate
+
+test/annotate/clean:
+	find . -type f -name '*,cover' -delete

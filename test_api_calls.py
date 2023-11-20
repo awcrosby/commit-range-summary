@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest import mock
 
 import pytest
 from jsonschema import validate
@@ -6,6 +6,7 @@ from jsonschema import validate
 from api_calls import (
     COMMIT_SCHEMA,
     call_github,
+    call_openai,
     get_commit,
     get_commit_details,
     get_commit_list,
@@ -39,7 +40,7 @@ def mock_requests_get_commit():
             }
         ],
     }
-    with patch("api_calls.requests.get") as mock_get:
+    with mock.patch("api_calls.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_details_subset_from_github
         yield mock_get
@@ -59,15 +60,46 @@ def mock_requests_get_commit_list():
             "sha": "76bdd307d931c5f4968eeea62f816ac2620f09a9",
         },
     ]
-    with patch("api_calls.requests.get") as mock_get:
+    with mock.patch("api_calls.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_list_subset_from_github
         yield mock_get
 
 
+@pytest.fixture
+def mock_requests_post_prompt():
+    text_gen_subset_from_openai = {
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                    "content": "Made enhancements to error handling and search functionality.",
+                    "role": "assistant",
+                },
+            }
+        ],
+        "model": "gpt-3.5-turbo-1106",
+        "object": "chat.completion",
+        "usage": {"completion_tokens": 51, "prompt_tokens": 4155, "total_tokens": 4206},
+    }
+
+    with mock.patch("api_calls.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = text_gen_subset_from_openai
+        yield mock_post
+
+
 def test_call_github(mock_requests_get_commit):
     resp = call_github(url="url", params={})
     assert resp.status_code == 200
+
+
+@mock.patch("api_calls.requests.get")
+def test_call_github_fail(mock_get):
+    mock_get.return_value.status_code = 400
+    with pytest.raises(RuntimeError, match=r".*Error calling github .*"):
+        call_github(url="url", params={})
 
 
 def test_get_commit(mock_requests_get_commit):
@@ -118,3 +150,20 @@ def test_get_commit_list(mock_requests_get_commit_list):
     commit_list = get_commit_list("owner", "repo", "start_date", "end_date")
     assert commit_list[0] == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
     assert commit_list[1] == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
+
+
+def test_call_openai(mock_requests_post_prompt):
+    ai_reply = call_openai(content="prompt for ai...")
+    assert ai_reply == "Made enhancements to error handling and search functionality."
+
+
+@mock.patch("api_calls.requests.post")
+def test_call_openai_fail(mock_post):
+    mock_post.return_value.status_code = 400
+    with pytest.raises(RuntimeError, match=r".*Error calling openai .*"):
+        call_openai(content="prompt for ai...")
+
+
+def test_call_openai_token_limit(mock_requests_post_prompt):
+    with pytest.raises(RuntimeError, match=r".*Token estimate .*"):
+        call_openai(content="prompt for ai..." * 100000)
