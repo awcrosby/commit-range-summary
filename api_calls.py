@@ -10,18 +10,6 @@ load_dotenv()
 GITHUB_API_KEY = os.environ.get("GITHUB_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-SUMMARY_PROMPT_INTRO = """
-I need a summary of code changes made to a git repository.
-
-Ignore issue tracker issues and do not include or mention associated issues in the summary.
-
-Summarize all the changes together in a single paragraph not in a list.
-Respond with a maximum total of 4 sentences.
-
-Please focus on the types of changes.
-Do not focus on the the names of the files, do not focus on the number of lines edited.
-"""
-
 COMMIT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -58,6 +46,7 @@ COMMIT_SCHEMA = {
 
 
 def call_github(url: str, params: dict[str, str]) -> requests.models.Response:
+    """Call GitHub API with url and params."""
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"token {GITHUB_API_KEY}",
@@ -126,11 +115,12 @@ def get_commit_patches(owner: str, repo: str, commit_sha: str) -> Dict[str, Any]
     return commit_details
 
 
-def get_commit_list(
-    owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
+def get_shas(
+    owner: str, repo: str, since: str, until: str, author: Optional[str] = None
 ) -> list[str]:
+    """Get list of commit shas for a date range."""
     gh_commit_list_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
-    params = {"since": start_date, "until": end_date}
+    params = {"since": since, "until": until}
     if author:
         params["author"] = author
 
@@ -148,6 +138,7 @@ def get_commit_list(
 
 
 def call_openai(content: str) -> str:
+    """Call OpenAI API with content and return the AI response."""
     openai_url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",

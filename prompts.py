@@ -3,20 +3,18 @@ from typing import Optional
 from api_calls import (
     call_openai,
     get_commit_details,
-    get_commit_list,
     get_commit_message,
     get_commit_metadata,
     get_commit_patches,
+    get_shas,
 )
 
 
 def sum_message_range(
-    owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
+    owner: str, repo: str, since: str, until: str, author: Optional[str] = None
 ) -> str:
     print("===Summary of commit range based on commit messages===")
-    print(
-        f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nstart_date: {start_date}\nend_date: {end_date}"
-    )
+    print(f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nsince: {since}\nuntil: {until}")
     prompt = """
     Write a single short paragraph for a resume.
 
@@ -26,19 +24,17 @@ def sum_message_range(
 
     Here is a list of the commit messages:\n{commit_messages}
     """
-    commit_list = get_commit_list(owner, repo, start_date, end_date, author)
-    print(f"number of commits: {len(commit_list)}")
-    commit_messages = [get_commit_message(owner, repo, sha) for sha in commit_list]
+    shas = get_shas(owner, repo, since, until, author)
+    print(f"number of commits: {len(shas)}")
+    commit_messages = [get_commit_message(owner, repo, sha) for sha in shas]
     return call_openai(prompt.format(commit_messages=commit_messages))
 
 
 def sum_metadata_range(
-    owner: str, repo: str, start_date: str, end_date: str, author: Optional[str] = None
+    owner: str, repo: str, since: str, until: str, author: Optional[str] = None
 ) -> str:
     print("===Summary of commit range based on messages and file metadata===")
-    print(
-        f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nstart_date: {start_date}\nend_date: {end_date}"
-    )
+    print(f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nsince: {since}\nuntil: {until}")
     prompt = """
     Write a single short paragraph for a resume.
 
@@ -48,15 +44,15 @@ def sum_metadata_range(
 
     Here is the input in json format:\n{commit_data}
     """
-    commit_shas = get_commit_list(owner, repo, start_date, end_date, author)
-    print(f"number of commits: {len(commit_shas)}")
-    commit_data = [get_commit_metadata(owner, repo, sha) for sha in commit_shas]
+    shas = get_shas(owner, repo, since, until, author)
+    print(f"number of commits: {len(shas)}")
+    commit_data = [get_commit_metadata(owner, repo, sha) for sha in shas]
     return call_openai(prompt.format(commit_data=commit_data))
 
 
-def sum_patch_range(owner: str, repo: str, start_date: str, end_date: str) -> str:
+def sum_patch_range(owner: str, repo: str, since: str, until: str) -> str:
     print("===Summary of commit range based on messages and commit code patches===")
-    print(f"owner: {owner}\nrepo: {repo}\nstart_date: {start_date}\nend_date: {end_date}")
+    print(f"owner: {owner}\nrepo: {repo}\nsince: {since}\nuntil: {until}")
     prompt = """
     Please write a single short paragraph for a resume.
 
@@ -66,9 +62,9 @@ def sum_patch_range(owner: str, repo: str, start_date: str, end_date: str) -> st
 
     Here is a list of the code patches:\n{commit_patches}
     """
-    commit_shas = get_commit_list(owner, repo, start_date, end_date)
-    print(f"number of commits: {len(commit_shas)}")
-    commit_patches = [get_commit_details(owner, repo, sha) for sha in commit_shas]
+    shas = get_shas(owner, repo, since, until)
+    print(f"number of commits: {len(shas)}")
+    commit_patches = [get_commit_details(owner, repo, sha) for sha in shas]
     return call_openai(prompt.format(commit_patches=commit_patches))
 
 

@@ -9,10 +9,10 @@ from api_calls import (
     call_openai,
     get_commit,
     get_commit_details,
-    get_commit_list,
     get_commit_message,
     get_commit_metadata,
     get_commit_patches,
+    get_shas,
 )
 
 
@@ -47,7 +47,7 @@ def mock_requests_get_commit():
 
 
 @pytest.fixture
-def mock_requests_get_commit_list():
+def mock_requests_get_shas():
     commit_list_subset_from_github = [
         {
             "author": {},
@@ -146,10 +146,10 @@ def test_get_commit_patches(mock_requests_get_commit):
     validate(commit_details, schema=COMMIT_SCHEMA)
 
 
-def test_get_commit_list(mock_requests_get_commit_list):
-    commit_list = get_commit_list("owner", "repo", "start_date", "end_date")
-    assert commit_list[0] == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
-    assert commit_list[1] == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
+def test_get_shas(mock_requests_get_shas):
+    shas = get_shas("owner", "repo", "since", "until")
+    assert shas[0] == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
+    assert shas[1] == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
 
 
 def test_call_openai(mock_requests_post_prompt):
