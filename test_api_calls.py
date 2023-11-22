@@ -3,21 +3,11 @@ from unittest import mock
 import pytest
 from jsonschema import validate
 
-from api_calls import (
-    COMMIT_SCHEMA,
-    call_github,
-    call_openai,
-    get_commit,
-    get_commit_details,
-    get_commit_message,
-    get_commit_metadata,
-    get_commit_patches,
-    get_shas,
-)
+from api_calls import COMMIT_SCHEMA, GitHubApiClient, OpenAIApiClient
 
 
 @pytest.fixture
-def mock_requests_get_commit():
+def mock_httpx_get_commit():
     commit_details_subset_from_github = {
         "commit": {
             "message": "Update token logic",
@@ -40,14 +30,14 @@ def mock_requests_get_commit():
             }
         ],
     }
-    with mock.patch("api_calls.requests.get") as mock_get:
+    with mock.patch("api_calls.httpx.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_details_subset_from_github
         yield mock_get
 
 
 @pytest.fixture
-def mock_requests_get_shas():
+def mock_httpx_get_shas():
     commit_list_subset_from_github = [
         {
             "author": {},
@@ -60,14 +50,14 @@ def mock_requests_get_shas():
             "sha": "76bdd307d931c5f4968eeea62f816ac2620f09a9",
         },
     ]
-    with mock.patch("api_calls.requests.get") as mock_get:
+    with mock.patch("api_calls.httpx.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_list_subset_from_github
         yield mock_get
 
 
 @pytest.fixture
-def mock_requests_post_prompt():
+def mock_httpx_post_prompt():
     text_gen_subset_from_openai = {
         "choices": [
             {
@@ -84,86 +74,79 @@ def mock_requests_post_prompt():
         "usage": {"completion_tokens": 51, "prompt_tokens": 4155, "total_tokens": 4206},
     }
 
-    with mock.patch("api_calls.requests.post") as mock_post:
+    with mock.patch("api_calls.httpx.post") as mock_post:
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = text_gen_subset_from_openai
         yield mock_post
 
 
-def test_call_github(mock_requests_get_commit):
-    resp = call_github(url="url", params={})
+def test_call_github(mock_httpx_get_commit):
+    client = GitHubApiClient("owner", "repo")
+    resp = client._make_get_request(url="url", params={})
     assert resp.status_code == 200
 
 
-@mock.patch("api_calls.requests.get")
+@mock.patch("api_calls.httpx.get")
 def test_call_github_fail(mock_get):
     mock_get.return_value.status_code = 400
+    client = GitHubApiClient("owner", "repo")
     with pytest.raises(RuntimeError, match=r".*Error calling github .*"):
-        call_github(url="url", params={})
+        client._make_get_request(url="url", params={})
 
 
-def test_get_commit(mock_requests_get_commit):
-    resp_json = get_commit("owner", "repo", "commit_sha")
+def test_get_commit_blob(mock_httpx_get_commit):
+    client = GitHubApiClient("owner", "repo")
+    resp_json = client._get_commit_blob("commit_sha")
     assert resp_json["commit"]["message"] == "Update token logic"
     assert resp_json["files"][0]["filename"] == "api_calls.py"
+    assert resp_json["stats"]["additions"] == 1
 
 
-def test_get_commit_message(mock_requests_get_commit):
-    resp = get_commit_message("owner", "repo", "commit_sha")
-    assert resp == "Update token logic"
+def test_get_commit(mock_httpx_get_commit):
+    client = GitHubApiClient("owner", "repo")
+    commit = client.get_commit("commit_sha")
+    assert commit["message"] == "Update token logic"
+    assert commit["files"][0]["filename"] == "api_calls.py"
+    assert commit["stats"]["additions"] == 1
+    assert commit["files"][0].get("patch") is not None
+    assert commit["files"][0].get("changes") == 2
+    validate(commit, schema=COMMIT_SCHEMA)
 
 
-def test_get_commit_details(mock_requests_get_commit):
-    commit_details = get_commit_details("owner", "repo", "commit_sha")
-    assert commit_details["message"] == "Update token logic"
-    assert commit_details["stats"]["additions"] == 1
-    assert commit_details["files"][0]["filename"] == "api_calls.py"
-    assert commit_details["files"][0].get("patch") is not None
-    assert commit_details["files"][0].get("changes") == 2
-    validate(commit_details, schema=COMMIT_SCHEMA)
-
-
-def test_get_commit_metadata(mock_requests_get_commit):
-    commit_metadata = get_commit_metadata("owner", "repo", "commit_sha")
-    assert commit_metadata["message"] == "Update token logic"
-    assert commit_metadata["stats"]["additions"] == 1
-    assert commit_metadata["files"][0]["filename"] == "api_calls.py"
-    assert commit_metadata["files"][0].get("patch") is None
-    assert commit_metadata["files"][0].get("changes") == 2
-    validate(commit_metadata, schema=COMMIT_SCHEMA)
-
-
-def test_get_commit_patches(mock_requests_get_commit):
-    commit_details = get_commit_patches("owner", "repo", "commit_sha")
-    assert commit_details["message"] == "Update token logic"
-    assert commit_details["stats"]["additions"] == 1
-    assert commit_details["files"][0]["filename"] == "api_calls.py"
-    assert commit_details["files"][0].get("patch") is not None
-    assert commit_details["files"][0].get("additions") is None
-    assert commit_details["files"][0].get("changes") is None
-    assert commit_details["files"][0].get("deletions") is None
-    assert commit_details["files"][0].get("status") is None
-    validate(commit_details, schema=COMMIT_SCHEMA)
-
-
-def test_get_shas(mock_requests_get_shas):
-    shas = get_shas("owner", "repo", "since", "until")
+def test_get_shas(mock_httpx_get_shas):
+    client = GitHubApiClient("owner", "repo")
+    shas = client._get_shas("since", "until", "author")
     assert shas[0] == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
     assert shas[1] == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
 
 
-def test_call_openai(mock_requests_post_prompt):
-    ai_reply = call_openai(content="prompt for ai...")
+@mock.patch("api_calls.GitHubApiClient._get_shas")
+def test_get_commits(mock_shas, mock_httpx_get_commit):
+    mock_shas.return_value = ["sha1", "sha2"]
+    client = GitHubApiClient("owner", "repo")
+    commits = client.get_commits("since", "until", "author")
+    assert len(commits) == 2
+    for commit in commits:
+        assert commit["message"] == "Update token logic"
+        assert commit["files"][0]["filename"] == "api_calls.py"
+        assert commit["stats"]["additions"] == 1
+        assert commit["files"][0].get("patch") is not None
+        assert commit["files"][0].get("changes") == 2
+        validate(commit, schema=COMMIT_SCHEMA)
+
+
+def test_call_openai(mock_httpx_post_prompt):
+    ai_reply = OpenAIApiClient().generate_chat_completion(content="prompt for ai...")
     assert ai_reply == "Made enhancements to error handling and search functionality."
 
 
-@mock.patch("api_calls.requests.post")
+@mock.patch("api_calls.httpx.post")
 def test_call_openai_fail(mock_post):
     mock_post.return_value.status_code = 400
     with pytest.raises(RuntimeError, match=r".*Error calling openai .*"):
-        call_openai(content="prompt for ai...")
+        OpenAIApiClient().generate_chat_completion(content="prompt for ai...")
 
 
-def test_call_openai_token_limit(mock_requests_post_prompt):
+def test_call_openai_token_limit(mock_httpx_post_prompt):
     with pytest.raises(RuntimeError, match=r".*Token estimate .*"):
-        call_openai(content="prompt for ai..." * 100000)
+        OpenAIApiClient().generate_chat_completion(content="prompt for ai..." * 100000)

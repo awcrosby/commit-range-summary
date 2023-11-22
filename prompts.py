@@ -1,13 +1,6 @@
 from typing import Optional
 
-from api_calls import (
-    call_openai,
-    get_commit_details,
-    get_commit_message,
-    get_commit_metadata,
-    get_commit_patches,
-    get_shas,
-)
+from api_calls import GitHubApiClient, OpenAIApiClient
 
 
 def sum_message_range(
@@ -24,16 +17,20 @@ def sum_message_range(
 
     Here is a list of the commit messages:\n{commit_messages}
     """
-    shas = get_shas(owner, repo, since, until, author)
-    print(f"number of commits: {len(shas)}")
-    commit_messages = [get_commit_message(owner, repo, sha) for sha in shas]
-    return call_openai(prompt.format(commit_messages=commit_messages))
+
+    gh_client = GitHubApiClient(owner, repo)
+    commits = gh_client.get_commits(since, until, author)
+    print(f"number of commits: {len(commits)}")
+    commit_messages = [commit["message"] for commit in commits]
+    return OpenAIApiClient().generate_chat_completion(
+        prompt.format(commit_messages=commit_messages)
+    )
 
 
-def sum_metadata_range(
+def sum_commit_metadata_range(
     owner: str, repo: str, since: str, until: str, author: Optional[str] = None
 ) -> str:
-    print("===Summary of commit range based on messages and file metadata===")
+    print("===Summary of commit range based on messages and file metadata, no code patches===")
     print(f"owner: {owner}\nrepo: {repo}\nauthor: {author}\nsince: {since}\nuntil: {until}")
     prompt = """
     Write a single short paragraph for a resume.
@@ -42,15 +39,21 @@ def sum_metadata_range(
     Do not simply list the commit messages.
     Make it devoid of any business bullshit speak and sales / leadership / marketing / social media influencer jargon
 
-    Here is the input in json format:\n{commit_data}
+    Here is the input in json format:\n{commits}
     """
-    shas = get_shas(owner, repo, since, until, author)
-    print(f"number of commits: {len(shas)}")
-    commit_data = [get_commit_metadata(owner, repo, sha) for sha in shas]
-    return call_openai(prompt.format(commit_data=commit_data))
+    gh_client = GitHubApiClient(owner, repo)
+    commits = gh_client.get_commits(since, until, author)
+    print(f"number of commits: {len(commits)}")
+
+    # Remove code patches from commit details
+    for c in commits:
+        for file in c["files"]:
+            file.pop("patch", None)
+
+    return OpenAIApiClient().generate_chat_completion(prompt.format(commits=commits))
 
 
-def sum_patch_range(owner: str, repo: str, since: str, until: str) -> str:
+def sum_commit_range(owner: str, repo: str, since: str, until: str, author: str) -> str:
     print("===Summary of commit range based on messages and commit code patches===")
     print(f"owner: {owner}\nrepo: {repo}\nsince: {since}\nuntil: {until}")
     prompt = """
@@ -59,13 +62,14 @@ def sum_patch_range(owner: str, repo: str, since: str, until: str) -> str:
     Your input will be code patches from git commits.
     Infer experience based on the text.
     Please be a little humble and do not use many superlatives.
+    Keep it short!
 
-    Here is a list of the code patches:\n{commit_patches}
+    Here is a list of the commits including code patches:\n{commits}
     """
-    shas = get_shas(owner, repo, since, until)
-    print(f"number of commits: {len(shas)}")
-    commit_patches = [get_commit_details(owner, repo, sha) for sha in shas]
-    return call_openai(prompt.format(commit_patches=commit_patches))
+    gh_client = GitHubApiClient(owner, repo)
+    commits = gh_client.get_commits(since, until)
+    print(f"number of commits: {len(commits)}")
+    return OpenAIApiClient().generate_chat_completion(prompt.format(commits=commits))
 
 
 def sum_patch(owner: str, repo: str, commit_sha: str) -> str:
@@ -83,12 +87,13 @@ def sum_patch(owner: str, repo: str, commit_sha: str) -> str:
 
     Commit message: {commit_message}
 
-    Code patches: {patches}
+    Code edits: {code_edits}
     """
-    commit = get_commit_patches(owner, repo, commit_sha)
-    commit_message = commit["message"]
-    patches = commit["files"]
-    return call_openai(prompt.format(commit_message=commit_message, patches=patches))
+    gh_client = GitHubApiClient(owner, repo)
+    commit = gh_client.get_commit(commit_sha)
+    return OpenAIApiClient().generate_chat_completion(
+        prompt.format(commit_message=commit["message"], code_edits=commit["files"])
+    )
 
 
 def criticize_patch(owner: str, repo: str, commit_sha: str) -> str:
@@ -102,9 +107,10 @@ def criticize_patch(owner: str, repo: str, commit_sha: str) -> str:
 
     Commit message: {commit_message}
 
-    Code patches: {patches}
+    Code patches: {code_edits}
     """
-    commit = get_commit_patches(owner, repo, commit_sha)
-    commit_message = commit["message"]
-    patches = commit["files"]
-    return call_openai(prompt.format(commit_message=commit_message, patches=patches))
+    gh_client = GitHubApiClient(owner, repo)
+    commit = gh_client.get_commit(commit_sha)
+    return OpenAIApiClient().generate_chat_completion(
+        prompt.format(commit_message=commit["message"], code_edits=commit["files"])
+    )
