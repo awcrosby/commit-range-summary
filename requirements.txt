@@ -1,6 +1,6 @@
+httpx
 jsonschema
 python-dotenv
-requests
 
 # Development
 isort

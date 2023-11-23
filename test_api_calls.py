@@ -30,7 +30,7 @@ def mock_httpx_get_commit():
             }
         ],
     }
-    with mock.patch("api_calls.httpx.get") as mock_get:
+    with mock.patch("api_calls.httpx.Client.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_details_subset_from_github
         yield mock_get
@@ -50,7 +50,7 @@ def mock_httpx_get_shas():
             "sha": "76bdd307d931c5f4968eeea62f816ac2620f09a9",
         },
     ]
-    with mock.patch("api_calls.httpx.get") as mock_get:
+    with mock.patch("api_calls.httpx.Client.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = commit_list_subset_from_github
         yield mock_get
@@ -74,7 +74,7 @@ def mock_httpx_post_prompt():
         "usage": {"completion_tokens": 51, "prompt_tokens": 4155, "total_tokens": 4206},
     }
 
-    with mock.patch("api_calls.httpx.post") as mock_post:
+    with mock.patch("api_calls.httpx.Client.post") as mock_post:
         mock_post.return_value.status_code = 200
         mock_post.return_value.json.return_value = text_gen_subset_from_openai
         yield mock_post
@@ -86,7 +86,7 @@ def test_call_github(mock_httpx_get_commit):
     assert resp.status_code == 200
 
 
-@mock.patch("api_calls.httpx.get")
+@mock.patch("api_calls.httpx.Client.get")
 def test_call_github_fail(mock_get):
     mock_get.return_value.status_code = 400
     client = GitHubApiClient("owner", "repo")
@@ -116,8 +116,8 @@ def test_get_commit(mock_httpx_get_commit):
 def test_get_shas(mock_httpx_get_shas):
     client = GitHubApiClient("owner", "repo")
     shas = client._get_shas("since", "until", "author")
-    assert shas[0] == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
-    assert shas[1] == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
+    assert next(shas) == "3a82cb165fe5db358f84ec59fd98c6fa17e68bbe"
+    assert next(shas) == "76bdd307d931c5f4968eeea62f816ac2620f09a9"
 
 
 @mock.patch("api_calls.GitHubApiClient._get_shas")
@@ -140,7 +140,7 @@ def test_call_openai(mock_httpx_post_prompt):
     assert ai_reply == "Made enhancements to error handling and search functionality."
 
 
-@mock.patch("api_calls.httpx.post")
+@mock.patch("api_calls.httpx.Client.post")
 def test_call_openai_fail(mock_post):
     mock_post.return_value.status_code = 400
     with pytest.raises(RuntimeError, match=r".*Error calling openai .*"):

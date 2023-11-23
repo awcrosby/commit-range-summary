@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Generator, Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -54,7 +54,8 @@ class GitHubApiClient:
         }
 
     def _make_get_request(self, url: str, params: dict[str, str]) -> httpx.Response:
-        r = httpx.get(url, headers=self.headers, params=params)
+        with httpx.Client() as client:
+            r = client.get(url, headers=self.headers, params=params)
 
         if r.status_code != 200:
             message = r.json().get("message", "")
@@ -70,12 +71,11 @@ class GitHubApiClient:
         self, since: str, until: str, author: Optional[str] = None
     ) -> list[Dict[str, Any]]:
         shas = self._get_shas(since, until, author)
-        commits = []
-        for sha in shas:
-            commits.append(self.get_commit(sha))
-        return commits
+        return [self.get_commit(sha) for sha in shas]
 
-    def _get_shas(self, since: str, until: str, author: Optional[str] = None) -> list[str]:
+    def _get_shas(
+        self, since: str, until: str, author: Optional[str] = None
+    ) -> Generator[str, None, None]:
         """Get list of commit shas for a date range."""
         gh_commit_list_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/commits"
         params = {"since": since, "until": until}
@@ -83,16 +83,14 @@ class GitHubApiClient:
             params["author"] = author
 
         resp = self._make_get_request(gh_commit_list_url, params)
+        yield from (commit["sha"] for commit in resp.json())
 
-        commits = resp.json()
         while "next" in resp.links:
             resp = self._make_get_request(
                 resp.links["next"]["url"],
                 params,
             )
-            commits.extend(resp.json())
-
-        return [commit["sha"] for commit in commits]
+            yield from (commit["sha"] for commit in resp.json())
 
     def _get_commit_blob(self, commit_sha: str) -> Dict[str, Any]:
         gh_commit_url = (
@@ -127,7 +125,8 @@ class OpenAIApiClient:
         }
 
     def _make_post_request(self, data: Dict[str, Any]) -> httpx.Response:
-        r = httpx.post(self.openai_url, headers=self.headers, json=data, timeout=90.0)
+        with httpx.Client() as client:
+            r = client.post(self.openai_url, headers=self.headers, json=data, timeout=90.0)
 
         if r.status_code != 200:
             try:
