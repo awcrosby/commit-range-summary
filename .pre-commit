@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Check if there are changes not staged for commit
+if [[ $(git diff --exit-code --name-only) ]]; then
+    echo "pre-commit error: there are changes not staged for commit, cannot run make commands on what will be commited"
+    exit 1
+fi
+
+# Check if there are untracked files
+if [[ $(git ls-files --others --exclude-standard) ]]; then
+    echo "pre-commit error: there are untracked files, cannot run make commands on what will be commited"
+    exit 1
+fi
+
+make lint
+make_lint_result=$?
+make test
+make_test_result=$?
+
+if [ "$make_lint_result" -ne 0 ] || [ "$make_test_result" -ne 0 ]; then
+    echo "pre-commit error: not all commands exited zero"
+    exit 1
+fi
+
+exit 0

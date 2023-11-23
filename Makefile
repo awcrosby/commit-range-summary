@@ -1,8 +1,8 @@
 lint:  # Display short output only if fails linter
-	-@isort --multi-line 3 --trailing-comma . --check --quiet
-	-@ruff check .
-	-@ruff format . --line-length 99 --check --quiet
-	-@mypy . --no-error-summary
+	@isort --multi-line 3 --trailing-comma . --check --quiet
+	@ruff check .
+	@ruff format . --line-length 99 --check --quiet
+	@mypy . --no-error-summary
 
 format-diff:  # Display changes formatter would make
 	-isort --multi-line 3 --trailing-comma . --diff
